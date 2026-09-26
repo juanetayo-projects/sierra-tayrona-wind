@@ -297,6 +297,11 @@
   .fld input, .fld textarea, .fld select { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); color: var(--ink); outline: none; }
   .fld textarea { min-height: 88px; resize: vertical; }
   .fld input:focus, .fld textarea:focus { border-color: var(--gold); }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--chip); padding: 4px; border-radius: 12px; }
+  .seg button { border: 0; background: none; color: var(--muted); padding: 10px 6px; border-radius: 9px; font-size: 13px; font-weight: 600; }
+  .seg button.on { background: var(--card); color: var(--heading); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  .hint-sm { font-size: 11.5px; color: var(--faint); margin-top: 5px; }
+  .fld input#pfPrice { font-size: 20px; font-weight: 600; letter-spacing: .3px; }
   .switch { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 0; }
   .switch input { width: 20px; height: 20px; accent-color: var(--navy); }
 

@@ -20,7 +20,7 @@ const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") ?? "Sierra Tayrona W
 const RESEND_REPLY_TO = Deno.env.get("RESEND_REPLY_TO") ?? "etayojuanc@gmail.com";
 // Número de WhatsApp del propietario (solo dígitos, con indicativo). Opcional:
 // si existe, los correos al huésped incluyen un botón para escribirle.
-const OWNER_WHATSAPP = (Deno.env.get("OWNER_WHATSAPP") ?? "").replace(/\D/g, "");
+const OWNER_WHATSAPP = (Deno.env.get("OWNER_WHATSAPP") ?? "573160232830").replace(/\D/g, "");
 const FORM_URL = "https://juanetayo-projects.github.io/sierra-tayrona-wind/";
 
 const ALLOWED_ORIGINS = new Set([
@@ -83,14 +83,53 @@ function formatDateEs(dateStr: string): string {
   });
 }
 
-function formatCop(v: number | null): string | null {
+// Solo se aceptan pagos en pesos colombianos o en dólares estadounidenses.
+const CURRENCIES = new Set(["COP", "USD"]);
+const PAYMENT_METHODS: Record<string, string> = {
+  transferencia: "Transferencia bancaria",
+  efectivo: "Efectivo",
+  tarjeta: "Tarjeta de crédito / débito",
+  otro: "Otro (acordado con el propietario)",
+};
+const ACCEPTED_CURRENCIES_NOTE = "Aceptamos pagos únicamente en pesos colombianos (COP) o en dólares estadounidenses (USD).";
+
+function formatMoney(v: number | null, currency = "COP"): string | null {
   if (v === null || v === undefined) return null;
-  return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(v);
+  const n = new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(v);
+  return currency === "USD" ? n.replace("US$", "US$ ").replace(/\s+/g, " ") : n;
+}
+
+function paymentLabel(b: Booking): string | null {
+  if (!b.payment_method) return null;
+  return `${PAYMENT_METHODS[b.payment_method] ?? b.payment_method} · ${b.price_currency === "USD" ? "Dólares (USD)" : "Pesos colombianos (COP)"}`;
+}
+
+// Lee moneda, método y valor del cuerpo de la petición.
+function readPaymentTerms(body: Record<string, unknown>, patch: Record<string, unknown>): string | null {
+  if (body.price_currency !== undefined) {
+    const c = String(body.price_currency).toUpperCase();
+    if (!CURRENCIES.has(c)) return "invalid_currency";
+    patch.price_currency = c;
+  }
+  if (body.payment_method !== undefined) {
+    const m = body.payment_method === null || body.payment_method === "" ? null : String(body.payment_method);
+    if (m !== null && !(m in PAYMENT_METHODS)) return "invalid_payment_method";
+    patch.payment_method = m;
+  }
+  if (body.quoted_price !== undefined) {
+    const p = body.quoted_price === null || body.quoted_price === "" ? null : Number(body.quoted_price);
+    if (p !== null && (!Number.isFinite(p) || p < 0)) return "invalid_price";
+    patch.quoted_price = p;
+  }
+  return null;
 }
 
 function nightsBetween(a: string, b: string): number {
   return Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 }
+
+// deno-lint-ignore no-explicit-any
+type Booking = Record<string, any>;
 
 function newConfirmationCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -102,15 +141,14 @@ function phoneDigits(phone: string): string {
   return phone.replace(/\D/g, "");
 }
 
-// deno-lint-ignore no-explicit-any
-type Booking = Record<string, any>;
 
 function buildWhatsappText(b: Booking, status: Status, message: string | null): string | null {
   const first = String(b.full_name).split(" ")[0];
   const inL = formatDateEs(b.check_in);
   const outL = formatDateEs(b.check_out);
   const nights = nightsBetween(b.check_in, b.check_out);
-  const price = formatCop(b.quoted_price);
+  const price = formatMoney(b.quoted_price, b.price_currency);
+  const payment = paymentLabel(b);
   const extra = message ? `\n\n${message}` : "";
   switch (status) {
     case "approved":
@@ -124,12 +162,15 @@ function buildWhatsappText(b: Booking, status: Status, message: string | null): 
         `🌙 Noches: ${nights}`,
         `👥 Huéspedes: ${b.guests}`,
         price ? `💵 Valor total: ${price}` : null,
+        payment ? `💳 Forma de pago: ${payment}` : null,
+        ``,
+        ACCEPTED_CURRENCIES_NOTE,
         extra ? extra.trimEnd() : null,
         ``,
         `También te enviamos la confirmación a ${b.email}. ¡Te esperamos!`,
       ].filter((l) => l !== null).join("\n");
     case "on_hold":
-      return `¡Hola, ${first}! Apartamos temporalmente tus fechas en *Sierra Tayrona Wind* del ${inL} al ${outL} (${nights} noches, ${b.guests} huéspedes) mientras confirmamos los detalles.${extra}`;
+      return `¡Hola, ${first}! Apartamos temporalmente tus fechas en *Sierra Tayrona Wind* del ${inL} al ${outL} (${nights} noches, ${b.guests} huéspedes) mientras confirmamos los detalles.${price ? `\n💵 Valor: ${price}` : ""}${payment ? `\n💳 Forma de pago: ${payment}` : ""}\n\n${ACCEPTED_CURRENCIES_NOTE}${extra}`;
     case "rejected":
       return `¡Hola, ${first}! Muchas gracias por tu interés en hospedarte en *Sierra Tayrona Wind*. Lamentablemente no podemos confirmar tu solicitud del ${inL} al ${outL}.${extra}\n\nNos encantaría recibirte en otras fechas: ${FORM_URL}`;
     case "cancelled":
@@ -154,7 +195,9 @@ function emailFor(b: Booking, status: Status, message: string | null): { subject
     checkOutLabel: formatDateEs(b.check_out),
     nights: nightsBetween(b.check_in, b.check_out),
     guests: b.guests,
-    priceLabel: formatCop(b.quoted_price),
+    priceLabel: formatMoney(b.quoted_price, b.price_currency),
+    paymentLabel: paymentLabel(b),
+    currenciesNote: ACCEPTED_CURRENCIES_NOTE,
     message,
     formUrl: FORM_URL,
     whatsappUrl: OWNER_WHATSAPP ? `https://wa.me/${OWNER_WHATSAPP}` : null,
@@ -229,16 +272,15 @@ Deno.serve(async (req: Request) => {
   if (action === "note") {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if ("internal_notes" in body) patch.internal_notes = body.internal_notes ? String(body.internal_notes).slice(0, 4000) : null;
-    if ("quoted_price" in body) {
-      const p = body.quoted_price === null || body.quoted_price === "" ? null : Number(body.quoted_price);
-      if (p !== null && (!Number.isFinite(p) || p < 0)) return json({ ok: false, error: "invalid_price" }, 400, headers);
-      patch.quoted_price = p;
-    }
+    const termsError = readPaymentTerms(body, patch);
+    if (termsError) return json({ ok: false, error: termsError }, 400, headers);
     const { error } = await supabase.from("booking_requests").update(patch).eq("id", id);
     if (error) return json({ ok: false, error: "update_failed" }, 500, headers);
     await supabase.from("booking_events").insert({
       booking_id: id, action: "note", from_status: currentStatus, to_status: currentStatus,
-      note: "quoted_price" in body ? `Valor: ${formatCop(patch.quoted_price as number | null) ?? "sin valor"}` : "Notas internas actualizadas",
+      note: "quoted_price" in body
+        ? `Valor: ${formatMoney(patch.quoted_price as number | null, (patch.price_currency as string) ?? booking.price_currency) ?? "sin valor"}${patch.payment_method ? ` · ${PAYMENT_METHODS[patch.payment_method as string]}` : ""}`
+        : "Notas internas actualizadas",
       actor_email: actorEmail,
     });
     return json({ ok: true }, 200, headers);
@@ -301,12 +343,15 @@ Deno.serve(async (req: Request) => {
     if (blocks && blocks.length > 0) {
       return json({ ok: false, error: "dates_blocked", blocks }, 409, headers);
     }
-    if (body.quoted_price !== undefined && body.quoted_price !== null && body.quoted_price !== "") {
-      const p = Number(body.quoted_price);
-      if (!Number.isFinite(p) || p < 0) return json({ ok: false, error: "invalid_price" }, 400, headers);
-      patch.quoted_price = p;
-    }
     patch.confirmation_code = booking.confirmation_code ?? newConfirmationCode();
+  }
+  if (toStatus === "approved" || toStatus === "on_hold") {
+    const termsError = readPaymentTerms(body, patch);
+    if (termsError) return json({ ok: false, error: termsError }, 400, headers);
+    // Al aprobar, el método de pago debe quedar acordado con el huésped.
+    if (toStatus === "approved" && !(patch.payment_method ?? booking.payment_method)) {
+      return json({ ok: false, error: "payment_method_required" }, 400, headers);
+    }
   }
   if (["approved", "rejected", "on_hold"].includes(toStatus)) {
     patch.reviewed_at = new Date().toISOString();

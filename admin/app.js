@@ -59,7 +59,17 @@
   function fmtShort(iso) { return parseD(iso).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, ''); }
   function fmtLong(iso) { return parseD(iso).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
   function fmtTs(ts) { return new Date(ts).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); }
-  function fmtCop(v) { if (v == null || v === '') return null; return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v); }
+  // Solo se aceptan pagos en pesos colombianos (COP) o dólares estadounidenses (USD).
+  var PAYMENT_METHODS = {
+    transferencia: 'Transferencia bancaria', efectivo: 'Efectivo',
+    tarjeta: 'Tarjeta de crédito / débito', otro: 'Otro (acordado)'
+  };
+  var CURRENCY_LABELS = { COP: 'Pesos colombianos (COP)', USD: 'Dólares (USD)' };
+  function fmtMoney(v, cur) {
+    if (v == null || v === '') return null;
+    var n = new Intl.NumberFormat('es-CO', { style: 'currency', currency: cur || 'COP', maximumFractionDigits: 0 }).format(v);
+    return cur === 'USD' ? n.replace('US$', 'US$ ').replace(/\s+/g, ' ') : n;
+  }
   function fmtNum(v, d) { return new Intl.NumberFormat('es-CO', { maximumFractionDigits: d || 0 }).format(v); }
   function timeAgo(ts) {
     var s = (Date.now() - new Date(ts).getTime()) / 1000;
@@ -310,7 +320,10 @@
     unauthorized: 'Tu sesión expiró. Vuelve a ingresar.',
     forbidden: 'Tu cuenta no tiene permisos de administrador.',
     invalid_price: 'El valor ingresado no es válido.',
-    nothing_to_resend: 'No hay una notificación para reenviar en este estado.'
+    nothing_to_resend: 'No hay una notificación para reenviar en este estado.',
+    payment_method_required: 'Para aprobar, indica el método de pago acordado con el huésped.',
+    invalid_currency: 'Solo se aceptan pagos en pesos colombianos (COP) o dólares (USD).',
+    invalid_payment_method: 'El método de pago no es válido.'
   };
 
   /* ================= Navegación ================= */
@@ -349,7 +362,7 @@
     response: 'Tiempo mediano entre la llegada de la solicitud y la primera decisión (aprobar, pre-reservar o rechazar). Airbnb y Booking premian respuestas en menos de 24 h.',
     lead: 'Anticipación promedio: días entre la solicitud y la fecha de llegada. Ayuda a planear precios y promociones.',
     los: 'Estancia promedio (Length of Stay): número promedio de noches por solicitud.',
-    revenue: 'Suma del valor registrado en las reservas aprobadas. ADR = ingreso ÷ noches vendidas (tarifa promedio por noche).'
+    revenue: 'Suma del valor registrado en las reservas aprobadas, separada por moneda (COP y USD no se mezclan). ADR = ingreso ÷ noches vendidas (tarifa promedio por noche).'
   };
 
   function greetingText() {
@@ -401,10 +414,12 @@
       return daysBetween(created, b.check_in);
     });
     var losArr = P.map(nights);
+    // Ingresos por moneda: COP y USD no se suman entre sí.
     var sold = P.filter(function (b) { return OCCUPYING.indexOf(b.status) >= 0 && b.quoted_price != null; });
-    var revenue = sold.reduce(function (s, b) { return s + Number(b.quoted_price); }, 0);
-    var soldNights = sold.reduce(function (s, b) { return s + nights(b); }, 0);
-    var adr = soldNights ? revenue / soldNights : null;
+    var rev = { COP: 0, USD: 0 }, revNights = { COP: 0, USD: 0 };
+    sold.forEach(function (b) { var c = b.price_currency || 'COP'; rev[c] += Number(b.quoted_price); revNights[c] += nights(b); });
+    var revenueLabel = [rev.COP ? fmtMoney(rev.COP, 'COP') : null, rev.USD ? fmtMoney(rev.USD, 'USD') : null].filter(Boolean).join('<br>') || '—';
+    var adrLabel = [revNights.COP ? fmtMoney(Math.round(rev.COP / revNights.COP), 'COP') : null, revNights.USD ? fmtMoney(Math.round(rev.USD / revNights.USD), 'USD') : null].filter(Boolean).join(' · ') || '—';
 
     var upcoming = all.filter(function (b) { return OCCUPYING.indexOf(b.status) >= 0 && b.check_in >= today; })
       .sort(function (a, b) { return a.check_in < b.check_in ? -1 : 1; }).slice(0, 5);
@@ -436,7 +451,7 @@
         kpi('response', 'Tiempo de respuesta', fmtDuration(median(responseHours)), 'Mediana · ' + responseHours.length + ' decididas') +
         kpi('lead', 'Anticipación', leadDays.length ? fmtNum(avg(leadDays)) + ' d' : '—', 'Promedio antes de llegar') +
         kpi('los', 'Estancia promedio', losArr.length ? fmtNum(avg(losArr), 1) + ' n' : '—', 'Noches por solicitud') +
-        kpi('revenue', 'Ingresos confirmados', revenue ? fmtCop(revenue) : '—', 'ADR ' + (adr ? fmtCop(adr) : '—') + ' / noche') +
+        kpi('revenue', 'Ingresos confirmados', revenueLabel, 'ADR ' + adrLabel + ' / noche') +
       '</div>' +
 
       '<div class="section-title">Tendencia</div>' +
@@ -801,13 +816,15 @@
           '<div class="full"><div class="k">Comentarios del huésped</div><div class="v">' + (b.comments ? '<div class="note-box">' + esc(b.comments) + '</div>' : '<span style="color:var(--faint)">Sin comentarios</span>') + '</div></div>' +
         '</div></div>' +
 
-        '<div class="section-title">Valor y notas internas</div>' +
+        '<div class="section-title">Valor, pago y notas internas</div>' +
         '<div class="card"><div class="dl">' +
-          '<div><div class="k">Valor total</div><div class="v">' + (b.quoted_price != null ? esc(fmtCop(b.quoted_price)) : '<span style="color:var(--faint)">Sin definir</span>') + '</div></div>' +
-          '<div><div class="k">Por noche</div><div class="v">' + (b.quoted_price != null ? esc(fmtCop(b.quoted_price / nights(b))) : '—') + '</div></div>' +
+          '<div><div class="k">Valor total</div><div class="v">' + (b.quoted_price != null ? esc(fmtMoney(b.quoted_price, b.price_currency)) : '<span style="color:var(--faint)">Sin definir</span>') + '</div></div>' +
+          '<div><div class="k">Por noche</div><div class="v">' + (b.quoted_price != null ? esc(fmtMoney(Math.round(b.quoted_price / nights(b)), b.price_currency)) : '—') + '</div></div>' +
+          '<div><div class="k">Moneda</div><div class="v">' + esc(CURRENCY_LABELS[b.price_currency || 'COP']) + '</div></div>' +
+          '<div><div class="k">Método de pago</div><div class="v">' + (b.payment_method ? esc(PAYMENT_METHODS[b.payment_method]) : '<span style="color:var(--faint)">Sin definir</span>') + '</div></div>' +
           '<div class="full"><div class="k">Notas internas (solo administradores)</div><div class="v">' + (b.internal_notes ? '<div class="note-box">' + esc(b.internal_notes) + '</div>' : '<span style="color:var(--faint)">Sin notas</span>') + '</div></div>' +
           (b.decision_reason ? '<div class="full"><div class="k">Mensaje enviado al huésped</div><div class="v"><div class="note-box">' + esc(b.decision_reason) + '</div></div></div>' : '') +
-        '</div><button class="btn ghost block" style="margin-top:12px" data-edit>✎ Editar valor y notas</button></div>' +
+        '</div><button class="btn ghost block" style="margin-top:12px" data-edit>✎ Editar valor, pago y notas</button></div>' +
 
         (more ? '<div class="section-title">Más acciones</div>' + more : '') +
 
@@ -848,7 +865,7 @@
   }
 
   var ACTIONS = {
-    approve: { title: 'Aprobar reserva', text: 'Se confirmará la reserva, se generará un código y se notificará al huésped.', ok: 'Aprobar y notificar', price: true, msg: 'Mensaje para el huésped (opcional)', msgPh: 'Ej.: Hora de llegada desde las 3:00 p. m. Te enviaremos la ubicación exacta.', notify: true, tone: 'ok' },
+    approve: { title: 'Aprobar reserva', text: 'Se confirmará la reserva con el valor y el método de pago acordados con el huésped, se generará un código y se le notificará.', ok: 'Aprobar y notificar', price: true, msg: 'Mensaje para el huésped (opcional)', msgPh: 'Ej.: Hora de llegada desde las 3:00 p. m. Te enviaremos la ubicación exacta.', notify: true, tone: 'ok' },
     hold: { title: 'Pre-reservar', text: 'Las fechas quedan apartadas mientras confirmas detalles (pago, número de huéspedes, etc.).', ok: 'Pre-reservar', price: true, msg: 'Mensaje para el huésped (opcional)', msgPh: 'Ej.: Para confirmar, por favor envíanos el anticipo.', notify: true, tone: 'info' },
     reject: { title: 'Rechazar solicitud', text: 'Se enviará al solicitante un correo agradeciendo su interés en Sierra Tayrona Wind.', ok: 'Rechazar y notificar', msg: 'Mensaje para el solicitante (opcional)', msgPh: 'Ej.: Esas fechas ya no están disponibles, pero la semana siguiente sí.', notify: true, danger: true, tone: 'err' },
     cancel: { title: 'Cancelar reserva', text: 'La reserva se cancela y las fechas quedan libres nuevamente.', ok: 'Cancelar reserva', msg: 'Motivo / mensaje al huésped (opcional)', msgPh: '', notify: true, danger: true, tone: 'err' },
@@ -872,18 +889,26 @@
     }
     var html = icon(cfg.tone) + '<h3>' + esc(cfg.title) + '</h3><p>' + esc(cfg.text) + '</p>' +
       '<div class="note-box" style="margin-bottom:14px;font-size:13px"><b>' + esc(b.full_name) + '</b><br>' + esc(fmtShort(b.check_in)) + ' → ' + esc(fmtShort(b.check_out)) + ' · ' + nights(b) + ' noches · ' + b.guests + ' huéspedes</div>' +
-      (cfg.price ? '<div class="fld"><label>Valor total de la estadía (COP, opcional)</label><input id="acPrice" inputmode="numeric" placeholder="Ej.: 1200000" value="' + (b.quoted_price != null ? Math.round(b.quoted_price) : '') + '"></div>' : '') +
+      (cfg.price ? paymentFieldsHtml(b, action === 'approve') : '') +
       (cfg.msg ? '<div class="fld"><label>' + esc(cfg.msg) + '</label><textarea id="acMsg" placeholder="' + esc(cfg.msgPh) + '"></textarea></div>' : '') +
       (cfg.notify ? '<label class="switch"><input type="checkbox" id="acNotify" checked> Notificar al huésped por correo</label>' : '') +
       '<div class="actions"><button class="btn ghost" data-no>Volver</button><button class="btn ' + (cfg.danger ? 'danger' : 'primary') + '" data-yes>' + esc(cfg.ok) + '</button></div>';
     openModal(html, function (m) {
+      if (cfg.price) bindPaymentFields(m, b);
       $('[data-no]', m).onclick = function () { closeModal(false); };
       $('[data-yes]', m).onclick = async function () {
         var btn = this;
         var body = { action: action, id: b.id };
         if (cfg.price) {
-          var pv = $('#acPrice', m).value.replace(/[^\d]/g, '');
-          if (pv) body.quoted_price = Number(pv);
+          var terms = readPaymentFields(m);
+          if (action === 'approve' && !terms.payment_method) {
+            toast('Indica el método de pago acordado con el huésped');
+            $('#pfMethod', m).focus();
+            return;
+          }
+          body.price_currency = terms.price_currency;
+          body.payment_method = terms.payment_method;
+          if (terms.quoted_price != null) body.quoted_price = terms.quoted_price;
         }
         if (cfg.msg) body.message = $('#acMsg', m).value.trim() || null;
         if (cfg.notify) body.notify = $('#acNotify', m).checked;
@@ -919,17 +944,61 @@
       function (m) { $('[data-close]', m).onclick = function () { closeModal(true); }; });
   }
 
+  // Bloque reutilizable: moneda (COP/USD), valor con formato de moneda en vivo y método de pago.
+  function paymentFieldsHtml(b, methodRequired) {
+    var cur = b.price_currency || 'COP';
+    return '<div class="fld"><label>Moneda de pago</label><div class="seg" id="pfCur">' +
+        ['COP', 'USD'].map(function (c) { return '<button type="button" data-cur="' + c + '" class="' + (c === cur ? 'on' : '') + '">' + CURRENCY_LABELS[c] + '</button>'; }).join('') +
+      '</div><div class="hint-sm">Solo se aceptan pagos en pesos colombianos o en dólares.</div></div>' +
+      '<div class="fld"><label>Valor total de la estadía</label><input id="pfPrice" inputmode="numeric" autocomplete="off" data-cur="' + cur + '" value="' + (b.quoted_price != null ? esc(fmtMoney(b.quoted_price, cur)) : '') + '"><div class="hint-sm" id="pfNight"></div></div>' +
+      '<div class="fld"><label>Método de pago' + (methodRequired ? ' <span style="color:var(--st-rejected)">*</span>' : '') + '</label><select id="pfMethod"><option value="">' + (methodRequired ? 'Selecciona el método acordado…' : 'Sin definir') + '</option>' +
+        Object.keys(PAYMENT_METHODS).map(function (k) { return '<option value="' + k + '"' + (b.payment_method === k ? ' selected' : '') + '>' + PAYMENT_METHODS[k] + '</option>'; }).join('') +
+      '</select></div>';
+  }
+  function priceDigits(m) { return $('#pfPrice', m).value.replace(/[^\d]/g, ''); }
+  function bindPaymentFields(m, b) {
+    var input = $('#pfPrice', m);
+    function refresh() {
+      var cur = input.dataset.cur;
+      var d = priceDigits(m);
+      input.value = d ? fmtMoney(Number(d), cur) : '';
+      input.placeholder = cur === 'USD' ? 'US$ 0' : '$ 0';
+      $('#pfNight', m).textContent = d ? fmtMoney(Math.round(Number(d) / nights(b)), cur) + ' por noche · ' + nights(b) + ' noches' : '';
+    }
+    input.addEventListener('input', refresh);
+    $$('#pfCur button', m).forEach(function (btn) {
+      btn.onclick = function () {
+        $$('#pfCur button', m).forEach(function (x) { x.classList.toggle('on', x === btn); });
+        input.dataset.cur = btn.dataset.cur;
+        refresh();
+      };
+    });
+    refresh();
+  }
+  function readPaymentFields(m) {
+    var d = priceDigits(m);
+    return {
+      quoted_price: d ? Number(d) : null,
+      price_currency: $('#pfPrice', m).dataset.cur,
+      payment_method: $('#pfMethod', m).value || null
+    };
+  }
+
   function editNotes(b) {
-    openModal('<h3>Valor y notas internas</h3><p>Solo los administradores ven esta información.</p>' +
-      '<div class="fld"><label>Valor total de la estadía (COP)</label><input id="enPrice" inputmode="numeric" value="' + (b.quoted_price != null ? Math.round(b.quoted_price) : '') + '" placeholder="Ej.: 1200000"></div>' +
+    openModal('<h3>Valor, pago y notas internas</h3><p>Solo los administradores ven esta información.</p>' +
+      paymentFieldsHtml(b, false) +
       '<div class="fld"><label>Notas internas</label><textarea id="enNotes" placeholder="Anticipo recibido, hora de llegada, placa del vehículo…">' + esc(b.internal_notes || '') + '</textarea></div>' +
       '<div class="actions"><button class="btn ghost" data-no>Cancelar</button><button class="btn navy" data-yes>Guardar</button></div>',
       function (m) {
+        bindPaymentFields(m, b);
         $('[data-no]', m).onclick = function () { closeModal(false); };
         $('[data-yes]', m).onclick = async function () {
           this.disabled = true;
-          var pv = $('#enPrice', m).value.replace(/[^\d]/g, '');
-          var res = await callAdmin({ action: 'note', id: b.id, quoted_price: pv ? Number(pv) : null, internal_notes: $('#enNotes', m).value.trim() || null });
+          var body = readPaymentFields(m);
+          body.action = 'note';
+          body.id = b.id;
+          body.internal_notes = $('#enNotes', m).value.trim() || null;
+          var res = await callAdmin(body);
           closeModal(true);
           if (!res.ok) { alertModal({ tone: 'err', title: 'No se pudo guardar', text: ERRORS[res.error] || 'Error inesperado.' }); return; }
           toast('Cambios guardados');
@@ -1111,7 +1180,7 @@
   function exportCsv() {
     var cols = [['Código', 'confirmation_code'], ['Estado', function (b) { return (STATUS[b.status] || {}).label; }], ['Nombre', 'full_name'], ['Teléfono', 'phone'], ['Correo', 'email'],
       ['Motivo', function (b) { return REASONS[b.visit_reason]; }], ['Llegada', 'check_in'], ['Salida', 'check_out'], ['Noches', nights], ['Huéspedes', 'guests'],
-      ['Valor', 'quoted_price'], ['Comentarios', 'comments'], ['Notas internas', 'internal_notes'], ['Recibida', function (b) { return fmtTs(b.created_at); }],
+      ['Valor', 'quoted_price'], ['Moneda', 'price_currency'], ['Método de pago', function (b) { return PAYMENT_METHODS[b.payment_method] || ''; }], ['Comentarios', 'comments'], ['Notas internas', 'internal_notes'], ['Recibida', function (b) { return fmtTs(b.created_at); }],
       ['Decidida', function (b) { return b.reviewed_at ? fmtTs(b.reviewed_at) : ''; }], ['Decidida por', 'decided_by']];
     var q = function (v) { v = v == null ? '' : String(v); return '"' + v.replace(/"/g, '""') + '"'; };
     var rows = [cols.map(function (c) { return q(c[0]); }).join(';')].concat(state.bookings.map(function (b) {

@@ -10,6 +10,8 @@ export interface GuestEmailData {
   nights: number;
   guests: number;
   priceLabel: string | null;
+  paymentLabel: string | null;
+  currenciesNote: string;
   message: string | null;
   formUrl: string;
   whatsappUrl: string | null;
@@ -84,7 +86,9 @@ function stayRows(b: GuestEmailData, withCode: boolean): string {
     ${row("Huéspedes", String(b.guests))}
     ${row("Motivo", esc(b.reasonLabel))}
     ${b.priceLabel ? row("Valor total", `<strong>${esc(b.priceLabel)}</strong>`) : ""}
-  </table>`;
+    ${b.paymentLabel ? row("Forma de pago", esc(b.paymentLabel)) : ""}
+  </table>
+  <p style="margin:12px 0 0;font:400 12.5px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#6b6455;">💱 ${esc(b.currenciesNote)}</p>`;
 }
 
 export function renderApprovedEmail(b: GuestEmailData): string {

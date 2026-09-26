@@ -44,8 +44,9 @@ URL: https://juanetayo-projects.github.io/sierra-tayrona-wind/admin/ — separad
 - **Ciclo de vida**: pendiente → pre-reserva → aprobada → hospedado → finalizada; salidas: rechazada, cancelada, no se presentó; reabrir; bloquear solicitante; reenviar notificación.
 - **Notificaciones**: al aprobar, rechazar, cancelar o pre-reservar se envía correo al huésped (Edge Function `admin-booking` + Resend) y se prepara el mensaje de WhatsApp con todos los datos (un toque desde el teléfono vía `wa.me`).
 - **Calendario**: ocupación, solicitudes en revisión y bloqueos de fechas (los bloqueos también se reflejan en el formulario público).
+- **Pago**: al aprobar se registra el valor (con formato de moneda mientras se escribe), la moneda —solo **COP o USD**— y el método de pago acordado (obligatorio). Los ingresos del panel se muestran separados por moneda.
 - **Ajustes**: solicitantes bloqueados, tema claro/oscuro, exportar CSV, cambiar contraseña.
 
 Esquema: [`supabase/migrations/20260926120000_admin_console.sql`](supabase/migrations/20260926120000_admin_console.sql).
 
-Secretos opcionales de la Edge Function `admin-booking`: `RESEND_FROM_EMAIL` (remitente con dominio verificado), `RESEND_REPLY_TO` (buzón que recibe respuestas de huéspedes), `OWNER_WHATSAPP` (número del propietario para el botón de WhatsApp en los correos).
+Secretos opcionales de la Edge Function `admin-booking`: `RESEND_FROM_EMAIL` (remitente con dominio verificado), `RESEND_REPLY_TO` (buzón que recibe respuestas de huéspedes), `OWNER_WHATSAPP` (número del propietario para el botón de WhatsApp en los correos; por defecto el de prueba +57 316 0232830, el mismo del botón "Escríbenos por WhatsApp" del formulario).
