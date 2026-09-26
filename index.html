@@ -168,10 +168,15 @@
   footer .a { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 14px; }
   footer .c { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.6; }
 
-  .confirm-banner { display: none; margin: 0 20px 16px; background: rgba(47,102,144,0.12); border: 1px solid var(--teal); border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: var(--navy); }
-  :root[data-theme="dark"] .confirm-banner { color: var(--ink); }
-  .confirm-banner.show { display: block; }
-  .error-banner { display: none; margin: 0 20px 16px; background: rgba(178,76,62,0.1); border: 1px solid var(--booked-fg); border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: var(--booked-fg); }
+  .success-state { display: none; text-align: center; padding: 12px 4px 4px; }
+  .success-state.show { display: block; }
+  .success-state h2 { margin: 4px 0 10px; color: var(--heading); }
+  .success-state p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin: 0 0 18px; }
+  .success-icon { width: 60px; height: 60px; border-radius: 50%; background: var(--teal); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .success-summary { background: var(--cream); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; text-align: left; font-size: 13px; color: var(--ink); line-height: 1.7; margin-bottom: 20px; }
+  .success-summary strong { color: var(--heading); }
+  .ghost-btn { width: 100%; background: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 12px; padding: 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .error-banner { display: none; margin: 0 0 16px; background: rgba(178,76,62,0.1); border: 1px solid var(--booked-fg); border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: var(--booked-fg); }
   .error-banner.show { display: block; }
   .submit-btn[aria-busy="true"] { opacity: 0.7; cursor: wait; }
 </style>
@@ -229,14 +234,22 @@
     </div>
   </div>
 
-  <div class="formcard">
-    <h2 class="serif">Solicita tu reserva</h2>
-    <p class="lede">Cuéntanos cuándo quieres venir y te confirmaremos disponibilidad por WhatsApp o correo.</p>
+  <div class="formcard" id="formCard">
+    <div class="success-state" id="successState">
+      <div class="success-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <h2 class="serif">¡Solicitud enviada!</h2>
+      <p>Recibimos tu solicitud de reserva. <strong>Nos pondremos en contacto contigo muy pronto por WhatsApp o correo</strong> para confirmar la disponibilidad.</p>
+      <div class="success-summary" id="successSummary"></div>
+      <button type="button" class="ghost-btn" id="newRequestBtn">Enviar otra solicitud</button>
+    </div>
 
-    <div class="confirm-banner" id="confirmBanner">✓ ¡Solicitud enviada! Te confirmaremos la disponibilidad por WhatsApp o correo.</div>
-    <div class="error-banner" id="errorBanner"></div>
+    <div id="formWrap">
+      <h2 class="serif">Solicita tu reserva</h2>
+      <p class="lede">Cuéntanos cuándo quieres venir y te confirmaremos disponibilidad por WhatsApp o correo.</p>
 
-    <form id="bookingForm" novalidate>
+      <div class="error-banner" id="errorBanner"></div>
+
+      <form id="bookingForm" novalidate>
       <label class="field-label" for="motivo">Motivo de la visita</label>
       <select id="motivo" required>
         <option value="">Selecciona una opción…</option>
@@ -343,7 +356,8 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         Formulario protegido contra registros automatizados.
       </div>
-    </form>
+      </form>
+    </div>
   </div>
 
   <a class="whatsapp-card" href="#" onclick="return false;">
@@ -501,7 +515,7 @@
 
   var ERROR_MESSAGES = {
     too_fast: 'El formulario se envió demasiado rápido. Espera unos segundos e inténtalo de nuevo.',
-    rate_limited: 'Se alcanzó el límite de solicitudes desde tu conexión. Intenta de nuevo en un rato, o escríbenos por WhatsApp.',
+    rate_limited: 'Se alcanzó el límite de solicitudes desde tu conexión. Intenta de nuevo más tarde.',
     missing_turnstile_token: 'La verificación de seguridad aún está cargando. Espera un momento e intenta de nuevo.',
     turnstile_failed: 'No se pudo verificar que eres una persona. Recarga la página e intenta de nuevo.',
     validation_failed: 'Revisa los datos del formulario, algún campo no es válido.',
@@ -510,9 +524,23 @@
   };
 
   var form = document.getElementById('bookingForm');
-  var banner = document.getElementById('confirmBanner');
+  var formWrap = document.getElementById('formWrap');
+  var successState = document.getElementById('successState');
+  var successSummary = document.getElementById('successSummary');
+  var formCard = document.getElementById('formCard');
   var errorBanner = document.getElementById('errorBanner');
   var submitBtn = document.getElementById('submitBtn');
+
+  document.getElementById('newRequestBtn').addEventListener('click', function () {
+    successState.classList.remove('show');
+    formWrap.style.display = '';
+    form.reset();
+    state.checkIn = null;
+    state.checkOut = null;
+    state.guests = 4;
+    render();
+    formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -552,13 +580,17 @@
       .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
       .then(function (result) {
         if (result.data && result.data.ok) {
-          banner.classList.add('show');
-          banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          form.reset();
-          state.checkIn = null;
-          state.checkOut = null;
-          state.guests = 4;
-          render();
+          var motivoSelect = document.getElementById('motivo');
+          var motivoLabel = motivoSelect.options[motivoSelect.selectedIndex].text;
+          var esc = function (s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+          successSummary.innerHTML =
+            '<strong>Motivo:</strong> ' + esc(motivoLabel) + '<br>' +
+            '<strong>Fechas:</strong> ' + fmtLabel(payload.checkIn) + ' — ' + fmtLabel(payload.checkOut) + '<br>' +
+            '<strong>Huéspedes:</strong> ' + payload.guests + '<br>' +
+            '<strong>Te contactaremos al:</strong> ' + esc(payload.phone);
+          formWrap.style.display = 'none';
+          successState.classList.add('show');
+          formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
           var code = (result.data && result.data.error) || 'network';
           errorBanner.textContent = ERROR_MESSAGES[code] || ERROR_MESSAGES.network;
