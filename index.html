@@ -179,6 +179,10 @@
   .success-state h2 { margin: 4px 0 10px; color: var(--heading); }
   .success-state p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin: 0 0 18px; }
   .success-icon { width: 60px; height: 60px; border-radius: 50%; background: var(--teal); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+  .request-number { background: var(--navy); color: #fff; border-radius: 14px; padding: 16px 14px; margin: 0 0 16px; }
+  .request-number .lbl { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+  .request-number .num { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 700; letter-spacing: 2px; line-height: 1.15; margin-top: 4px; }
+  .request-number .hint { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 4px; }
   .success-summary { background: var(--cream); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; text-align: left; font-size: 13px; color: var(--ink); line-height: 1.7; margin-bottom: 20px; }
   .success-summary strong { color: var(--heading); }
   .ghost-btn { width: 100%; background: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 12px; padding: 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
@@ -245,6 +249,11 @@
       <div class="success-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
       <h2 class="serif">¡Solicitud enviada!</h2>
       <p>Recibimos tu solicitud de reserva. <strong>Nos pondremos en contacto contigo muy pronto por WhatsApp o correo</strong> para confirmar la disponibilidad.</p>
+      <div class="request-number" id="requestNumberBox" style="display:none">
+        <div class="lbl">N.º de solicitud</div>
+        <div class="num" id="requestNumber"></div>
+        <div class="hint">Guárdalo para cualquier consulta sobre tu reserva.</div>
+      </div>
       <div class="success-summary" id="successSummary"></div>
       <button type="button" class="ghost-btn" id="newRequestBtn">Enviar otra solicitud</button>
     </div>
@@ -594,6 +603,13 @@
             '<strong>Fechas:</strong> ' + fmtLabel(payload.checkIn) + ' — ' + fmtLabel(payload.checkOut) + '<br>' +
             '<strong>Huéspedes:</strong> ' + payload.guests + '<br>' +
             '<strong>Te contactaremos al:</strong> ' + esc(payload.phone);
+          var rnBox = document.getElementById('requestNumberBox');
+          if (result.data.requestCode) {
+            document.getElementById('requestNumber').textContent = result.data.requestCode;
+            rnBox.style.display = '';
+          } else {
+            rnBox.style.display = 'none';
+          }
           formWrap.style.display = 'none';
           successState.classList.add('show');
           formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });

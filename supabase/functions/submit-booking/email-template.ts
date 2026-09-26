@@ -1,4 +1,5 @@
 export interface BookingEmailData {
+  requestCode: string;
   fullName: string;
   phone: string;
   email: string;
@@ -51,6 +52,7 @@ export function renderBookingEmail(b: BookingEmailData): string {
                 Alguien solicitó reservar el apartamento. Revisa los datos y confirma la disponibilidad directamente con el solicitante.
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                ${row("Solicitud", `<strong style="font-size:17px;letter-spacing:1px;color:#0E2A4A;">${escapeHtml(b.requestCode)}</strong>`)}
                 ${row("Nombre", escapeHtml(b.fullName))}
                 ${row("Teléfono", `<a href="tel:${escapeHtml(b.phone)}" style="color:#2F6690;text-decoration:none;">${escapeHtml(b.phone)}</a>`)}
                 ${row("Correo", `<a href="mailto:${escapeHtml(b.email)}" style="color:#2F6690;text-decoration:none;">${escapeHtml(b.email)}</a>`)}
@@ -117,6 +119,7 @@ export function renderApplicantEmail(b: BookingEmailData): string {
                 Ya recibimos tu solicitud de reserva para el apartamento en Playa Salguero, Santa Marta. Nos pondremos en contacto contigo muy pronto por WhatsApp o correo para confirmar la disponibilidad.
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                ${row("N.º de solicitud", `<strong style="font-size:18px;letter-spacing:1px;color:#0E2A4A;">${escapeHtml(b.requestCode)}</strong>`)}
                 ${row("Motivo", escapeHtml(b.reasonLabel))}
                 ${row("Llegada", b.checkInLabel)}
                 ${row("Salida", b.checkOutLabel)}
@@ -128,7 +131,7 @@ export function renderApplicantEmail(b: BookingEmailData): string {
           <tr>
             <td style="padding:8px 28px 28px;">
               <div style="background:#FBF3EA;border:1px solid #C9A227;border-radius:10px;padding:14px 16px;font:400 13px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#7A5F12;">
-                Tu solicitud queda en estado <strong>pendiente</strong> hasta que te confirmemos la disponibilidad. Recibida el ${b.createdAtLabel} (hora de Bogotá).
+                Guarda tu número de solicitud <strong>${escapeHtml(b.requestCode)}</strong> para cualquier consulta. Tu solicitud queda en estado <strong>pendiente</strong> hasta que te confirmemos la disponibilidad. Recibida el ${b.createdAtLabel} (hora de Bogotá).
               </div>
             </td>
           </tr>

@@ -192,7 +192,7 @@ Deno.serve(async (req: Request) => {
       comments,
       consent_accepted: consent,
     })
-    .select("id, created_at")
+    .select("id, created_at, request_code")
     .single();
 
   if (insertError || !inserted) {
@@ -201,6 +201,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const emailData = {
+    requestCode: inserted.request_code,
     fullName,
     phone,
     email,
@@ -221,11 +222,11 @@ Deno.serve(async (req: Request) => {
   // applicant's address isn't allowed yet under Resend's sandbox mode)
   // doesn't stop the other from going out.
   await Promise.all([
-    sendEmail(NOTIFY_EMAILS, `Nueva solicitud de reserva — ${fullName}`, renderBookingEmail(emailData)),
-    sendEmail([email], "Recibimos tu solicitud de reserva — Sierra Tayrona Wind", renderApplicantEmail(emailData)),
+    sendEmail(NOTIFY_EMAILS, `Nueva solicitud ${inserted.request_code} — ${fullName}`, renderBookingEmail(emailData)),
+    sendEmail([email], `Recibimos tu solicitud ${inserted.request_code} — Sierra Tayrona Wind`, renderApplicantEmail(emailData)),
   ]);
 
-  return json({ ok: true, id: inserted.id }, 200, headers);
+  return json({ ok: true, id: inserted.id, requestCode: inserted.request_code }, 200, headers);
 });
 
 async function sendEmail(to: string[], subject: string, html: string): Promise<void> {

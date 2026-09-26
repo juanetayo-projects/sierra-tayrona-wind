@@ -156,7 +156,8 @@ function buildWhatsappText(b: Booking, status: Status, message: string | null): 
         `¡Hola, ${first}! 🌴`,
         `Tu reserva en *Sierra Tayrona Wind* (Playa Salguero, Santa Marta) está *CONFIRMADA* ✅`,
         ``,
-        `🔑 Código: *${b.confirmation_code}*`,
+        `📄 Solicitud: ${b.request_code}`,
+        `🔑 Código de reserva: *${b.confirmation_code}*`,
         `📅 Llegada: ${inL}`,
         `📅 Salida: ${outL}`,
         `🌙 Noches: ${nights}`,
@@ -170,9 +171,9 @@ function buildWhatsappText(b: Booking, status: Status, message: string | null): 
         `También te enviamos la confirmación a ${b.email}. ¡Te esperamos!`,
       ].filter((l) => l !== null).join("\n");
     case "on_hold":
-      return `¡Hola, ${first}! Apartamos temporalmente tus fechas en *Sierra Tayrona Wind* del ${inL} al ${outL} (${nights} noches, ${b.guests} huéspedes) mientras confirmamos los detalles.${price ? `\n💵 Valor: ${price}` : ""}${payment ? `\n💳 Forma de pago: ${payment}` : ""}\n\n${ACCEPTED_CURRENCIES_NOTE}${extra}`;
+      return `¡Hola, ${first}! Apartamos temporalmente tus fechas (solicitud ${b.request_code}) en *Sierra Tayrona Wind* del ${inL} al ${outL} (${nights} noches, ${b.guests} huéspedes) mientras confirmamos los detalles.${price ? `\n💵 Valor: ${price}` : ""}${payment ? `\n💳 Forma de pago: ${payment}` : ""}\n\n${ACCEPTED_CURRENCIES_NOTE}${extra}`;
     case "rejected":
-      return `¡Hola, ${first}! Muchas gracias por tu interés en hospedarte en *Sierra Tayrona Wind*. Lamentablemente no podemos confirmar tu solicitud del ${inL} al ${outL}.${extra}\n\nNos encantaría recibirte en otras fechas: ${FORM_URL}`;
+      return `¡Hola, ${first}! Muchas gracias por tu interés en hospedarte en *Sierra Tayrona Wind*. Lamentablemente no podemos confirmar tu solicitud ${b.request_code} del ${inL} al ${outL}.${extra}\n\nNos encantaría recibirte en otras fechas: ${FORM_URL}`;
     case "cancelled":
       return `¡Hola, ${first}! Te confirmamos que tu reserva${b.confirmation_code ? ` ${b.confirmation_code}` : ""} en *Sierra Tayrona Wind* del ${inL} al ${outL} fue cancelada.${extra}`;
     default:
@@ -188,6 +189,7 @@ function whatsappUrl(phone: string, text: string | null): string | null {
 
 function emailFor(b: Booking, status: Status, message: string | null): { subject: string; html: string } | null {
   const data: GuestEmailData = {
+    requestCode: b.request_code,
     fullName: b.full_name,
     confirmationCode: b.confirmation_code,
     reasonLabel: REASON_LABELS[b.visit_reason] ?? b.visit_reason,
@@ -206,11 +208,11 @@ function emailFor(b: Booking, status: Status, message: string | null): { subject
     case "approved":
       return { subject: `Reserva confirmada ${b.confirmation_code} — Sierra Tayrona Wind`, html: renderApprovedEmail(data) };
     case "rejected":
-      return { subject: "Gracias por tu interés en Sierra Tayrona Wind", html: renderRejectedEmail(data) };
+      return { subject: `Gracias por tu interés en Sierra Tayrona Wind — ${b.request_code}`, html: renderRejectedEmail(data) };
     case "cancelled":
       return { subject: "Tu reserva fue cancelada — Sierra Tayrona Wind", html: renderCancelledEmail(data) };
     case "on_hold":
-      return { subject: "Pre-reserva de tus fechas — Sierra Tayrona Wind", html: renderOnHoldEmail(data) };
+      return { subject: `Pre-reserva ${b.request_code} — Sierra Tayrona Wind`, html: renderOnHoldEmail(data) };
     default:
       return null;
   }

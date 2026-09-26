@@ -2,6 +2,7 @@
 // Mismo lenguaje visual que los correos de submit-booking.
 
 export interface GuestEmailData {
+  requestCode: string;
   fullName: string;
   confirmationCode: string | null;
   reasonLabel: string;
@@ -79,7 +80,8 @@ function messageBox(message: string | null): string {
 
 function stayRows(b: GuestEmailData, withCode: boolean): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-    ${withCode && b.confirmationCode ? row("Código", `<strong style="letter-spacing:1px;color:#0E2A4A;">${esc(b.confirmationCode)}</strong>`) : ""}
+    ${row("N.º de solicitud", `<strong style="letter-spacing:1px;color:#0E2A4A;">${esc(b.requestCode)}</strong>`)}
+    ${withCode && b.confirmationCode ? row("Código de reserva", `<strong style="letter-spacing:1px;color:#0E2A4A;">${esc(b.confirmationCode)}</strong>`) : ""}
     ${row("Llegada", b.checkInLabel)}
     ${row("Salida", b.checkOutLabel)}
     ${row("Noches", String(b.nights))}
@@ -113,7 +115,7 @@ export function renderRejectedEmail(b: GuestEmailData): string {
     <tr><td style="padding:28px 28px 8px;">
       ${greeting(b.fullName)}
       ${para("Muchas gracias por tu interés en hospedarte en nuestro apartamento <strong>Sierra Tayrona Wind</strong> en Playa Salguero.")}
-      ${para(`Lamentablemente, en esta ocasión no nos es posible confirmar tu solicitud para las fechas del <strong>${b.checkInLabel}</strong> al <strong>${b.checkOutLabel}</strong>.`)}
+      ${para(`Lamentablemente, en esta ocasión no nos es posible confirmar tu solicitud <strong>${esc(b.requestCode)}</strong> para las fechas del <strong>${b.checkInLabel}</strong> al <strong>${b.checkOutLabel}</strong>.`)}
       ${messageBox(b.message)}
       ${para("Nos encantaría recibirte en otra oportunidad. Puedes consultar nuevas fechas disponibles y enviarnos una nueva solicitud cuando quieras.")}
     </td></tr>
@@ -125,7 +127,7 @@ export function renderCancelledEmail(b: GuestEmailData): string {
   return layout("Reserva cancelada", `
     <tr><td style="padding:28px 28px 8px;">
       ${greeting(b.fullName)}
-      ${para(`Te confirmamos que la reserva${b.confirmationCode ? ` <strong>${esc(b.confirmationCode)}</strong>` : ""} para las fechas del <strong>${b.checkInLabel}</strong> al <strong>${b.checkOutLabel}</strong> fue <strong>cancelada</strong>.`)}
+      ${para(`Te confirmamos que la reserva${b.confirmationCode ? ` <strong>${esc(b.confirmationCode)}</strong>` : ""} (solicitud <strong>${esc(b.requestCode)}</strong>) para las fechas del <strong>${b.checkInLabel}</strong> al <strong>${b.checkOutLabel}</strong> fue <strong>cancelada</strong>.`)}
       ${messageBox(b.message)}
       ${para("Gracias por tenernos en cuenta. Si quieres reprogramar tu visita, con gusto te ayudamos.")}
     </td></tr>

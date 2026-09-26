@@ -294,7 +294,7 @@
     if (channel) return;
     channel = sb.channel('stw-bookings')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, function (p) {
-        if (p.eventType === 'INSERT' && p.new) toast('Nueva solicitud de ' + p.new.full_name);
+        if (p.eventType === 'INSERT' && p.new) toast('Nueva solicitud ' + (p.new.request_code || '') + ' de ' + p.new.full_name);
         loadAll();
       })
       .subscribe();
@@ -474,7 +474,7 @@
 
       '<div class="section-title">Próximas llegadas</div>' +
       '<div class="card">' + (upcoming.length ? upcoming.map(function (b) {
-        return '<div class="row-item" data-open="' + b.id + '" style="cursor:pointer"><div class="grow"><div class="t">' + esc(b.full_name) + '</div><div class="s">' +
+        return '<div class="row-item" data-open="' + b.id + '" style="cursor:pointer"><div class="grow"><div class="t"><span class="req-code">' + esc(b.request_code) + '</span> ' + esc(b.full_name) + '</div><div class="s">' +
           esc(fmtShort(b.check_in)) + ' → ' + esc(fmtShort(b.check_out)) + ' · ' + nights(b) + ' noches · ' + b.guests + ' huésp.</div></div>' + pill(b.status) + '</div>';
       }).join('') : '<div class="empty" style="padding:18px">No hay llegadas confirmadas próximamente.</div>') + '</div>';
 
@@ -691,7 +691,7 @@
     var list = state.bookings.filter(function (b) {
       if (f[2] && f[2].indexOf(b.status) < 0) return false;
       if (!q) return true;
-      return [b.full_name, b.email, b.phone, b.confirmation_code].join(' ').toLowerCase().indexOf(q) >= 0;
+      return [b.request_code, b.full_name, b.email, b.phone, b.confirmation_code].join(' ').toLowerCase().indexOf(q) >= 0;
     });
     if (['approved', 'checked_in', 'on_hold'].indexOf(state.filter) >= 0) {
       list.sort(function (a, b) { return a.check_in < b.check_in ? -1 : 1; });
@@ -700,7 +700,7 @@
     el.innerHTML =
       '<h1 class="view-title">Solicitudes</h1><p class="view-sub">' + state.bookings.length + ' en total</p>' +
       '<div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
-      '<input id="searchInput" type="search" placeholder="Buscar por nombre, correo, teléfono o código" value="' + esc(state.search) + '"></div>' +
+      '<input id="searchInput" type="search" placeholder="Buscar por N.º de solicitud, nombre, correo o teléfono" value="' + esc(state.search) + '"></div>' +
       '<div class="chips">' + FILTERS.map(function (x) {
         var n = x[2] ? state.bookings.filter(function (b) { return x[2].indexOf(b.status) >= 0; }).length : state.bookings.length;
         return '<button class="chip' + (x[0] === state.filter ? ' active' : '') + '" data-filter="' + x[0] + '">' + x[1] + ' <span class="c">' + n + '</span></button>';
@@ -726,7 +726,7 @@
       else if (c.competing.length) warn = '<div class="warn" style="color:var(--st-pending)">● Compite con ' + c.competing.length + ' solicitud' + (c.competing.length > 1 ? 'es' : '') + ' por estas fechas</div>';
     }
     return '<button class="bk" data-open="' + b.id + '" style="--c:' + statusColor(b.status) + '">' +
-      '<div class="r1"><div class="name">' + esc(b.full_name) + '</div>' + pill(b.status) + '</div>' +
+      '<div class="r1"><span class="req-code">' + esc(b.request_code) + '</span><div class="name">' + esc(b.full_name) + '</div>' + pill(b.status) + '</div>' +
       '<div class="r2"><span>📅 ' + esc(fmtShort(b.check_in)) + ' → ' + esc(fmtShort(b.check_out)) + '</span><span>🌙 ' + nights(b) + '</span><span>👥 ' + b.guests + '</span></div>' +
       '<div class="r2"><span>' + esc(REASONS[b.visit_reason] || b.visit_reason) + '</span>' + (b.confirmation_code ? '<span>🔑 ' + esc(b.confirmation_code) + '</span>' : '') + '<span style="margin-left:auto">' + timeAgo(b.created_at) + '</span></div>' +
       warn + '</button>';
@@ -779,9 +779,9 @@
     if (OPEN.indexOf(b.status) >= 0) {
       if (c.occ.length) conflictHtml += '<div class="conflict">⚠ <div>Se cruza con la reserva aprobada de <b>' + esc(c.occ[0].full_name) + '</b> (' + esc(fmtShort(c.occ[0].check_in)) + ' → ' + esc(fmtShort(c.occ[0].check_out)) + '). No se puede aprobar mientras exista.</div></div>';
       if (c.blk.length) conflictHtml += '<div class="conflict">⛔ <div>Las fechas incluyen un bloqueo del calendario' + (c.blk[0].reason ? ' (' + esc(c.blk[0].reason) + ')' : '') + '.</div></div>';
-      if (c.competing.length) conflictHtml += '<div class="conflict" style="background:var(--st-pending-bg);color:var(--st-pending)">● <div>Otras ' + c.competing.length + ' solicitud(es) piden fechas que se cruzan: ' + c.competing.map(function (o) { return esc(o.full_name); }).join(', ') + '.</div></div>';
+      if (c.competing.length) conflictHtml += '<div class="conflict" style="background:var(--st-pending-bg);color:var(--st-pending)">● <div>Otras ' + c.competing.length + ' solicitud(es) piden fechas que se cruzan: ' + c.competing.map(function (o) { return esc(o.request_code) + ' (' + esc(o.full_name) + ')'; }).join(', ') + '.</div></div>';
     }
-    var tl = '<div class="tl" style="--c:var(--st-pending)"><div class="t">Solicitud recibida</div><div class="m">' + esc(fmtTs(b.created_at)) + ' · formulario web</div></div>';
+    var tl = '<div class="tl" style="--c:var(--st-pending)"><div class="t">Solicitud ' + esc(b.request_code) + ' recibida</div><div class="m">' + esc(fmtTs(b.created_at)) + ' · formulario web</div></div>';
     tl += events.map(function (e) {
       return '<div class="tl" style="--c:' + statusColor(e.to_status) + '"><div class="t">' + esc(ACTION_LABELS[e.action] || e.action) +
         (e.notified_email ? ' · <span style="color:var(--st-approved);font-weight:500">correo enviado ✓</span>' : '') + '</div>' +
@@ -794,9 +794,10 @@
     }).join('');
 
     sheet.innerHTML =
-      '<div class="sheet-head"><div class="row"><button class="icon-btn" data-close aria-label="Volver"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>' +
+      '<div class="sheet-head"><div class="row"><button class="back-btn" data-close aria-label="Volver"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>Volver</button>' +
       '<div style="flex:1"></div>' + pill(b.status) + '</div>' +
-      '<h2>' + esc(b.full_name) + '</h2><div class="meta">Recibida ' + esc(timeAgo(b.created_at)) + (b.confirmation_code ? ' · Código <b style="color:var(--gold)">' + esc(b.confirmation_code) + '</b>' : '') + '</div></div>' +
+      '<div class="code-big">' + esc(b.request_code) + '</div>' +
+      '<h2>' + esc(b.full_name) + '</h2><div class="meta">Recibida ' + esc(timeAgo(b.created_at)) + (b.confirmation_code ? ' · Reserva <b style="color:var(--gold)">' + esc(b.confirmation_code) + '</b>' : '') + '</div></div>' +
       '<div class="sheet-body">' +
         '<div class="contact-row">' +
           '<a href="' + wa + '" target="_blank" rel="noopener"><span class="i" style="background:#E3F4EC;color:#1F8F5F"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4zM12 21.8c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4c-1-1.6-1.5-3.4-1.5-5.2 0-5.4 4.4-9.8 9.8-9.8 2.6 0 5.1 1 6.9 2.9 1.8 1.8 2.9 4.3 2.9 6.9 0 5.4-4.4 9.8-9.8 9.8z"/></svg></span>WhatsApp</a>' +
@@ -829,9 +830,11 @@
         (more ? '<div class="section-title">Más acciones</div>' + more : '') +
 
         '<div class="section-title">Seguimiento</div><div class="card"><div class="timeline">' + tl + '</div></div>' +
+        '<button class="btn ghost block" style="margin-top:18px" data-close-bottom>← Volver a la lista</button>' +
       '</div>';
 
     $('[data-close]', sheet).onclick = function () { closeSheet(false); };
+    $('[data-close-bottom]', sheet).onclick = function () { closeSheet(false); };
     $('[data-edit]', sheet).onclick = function () { editNotes(b); };
     $$('[data-act]', sheet).forEach(function (btn) { btn.onclick = function () { runAction(b, btn.dataset.act); }; });
 
@@ -888,7 +891,7 @@
       }
     }
     var html = icon(cfg.tone) + '<h3>' + esc(cfg.title) + '</h3><p>' + esc(cfg.text) + '</p>' +
-      '<div class="note-box" style="margin-bottom:14px;font-size:13px"><b>' + esc(b.full_name) + '</b><br>' + esc(fmtShort(b.check_in)) + ' → ' + esc(fmtShort(b.check_out)) + ' · ' + nights(b) + ' noches · ' + b.guests + ' huéspedes</div>' +
+      '<div class="note-box" style="margin-bottom:14px;font-size:13px"><span class="req-code">' + esc(b.request_code) + '</span> <b>' + esc(b.full_name) + '</b><br>' + esc(fmtShort(b.check_in)) + ' → ' + esc(fmtShort(b.check_out)) + ' · ' + nights(b) + ' noches · ' + b.guests + ' huéspedes</div>' +
       (cfg.price ? paymentFieldsHtml(b, action === 'approve') : '') +
       (cfg.msg ? '<div class="fld"><label>' + esc(cfg.msg) + '</label><textarea id="acMsg" placeholder="' + esc(cfg.msgPh) + '"></textarea></div>' : '') +
       (cfg.notify ? '<label class="switch"><input type="checkbox" id="acNotify" checked> Notificar al huésped por correo</label>' : '') +
@@ -1039,7 +1042,7 @@
       dayPanel = '<div class="section-title">' + esc(fmtLong(sd)) + '</div><div class="card">' +
         (items.length || bl.length ? '' : '<div class="empty" style="padding:12px">Noche libre.</div>') +
         items.map(function (b) {
-          return '<div class="row-item" data-open="' + b.id + '" style="cursor:pointer"><div class="grow"><div class="t">' + esc(b.full_name) + '</div><div class="s">' + esc(fmtShort(b.check_in)) + ' → ' + esc(fmtShort(b.check_out)) + ' · ' + b.guests + ' huésp.</div></div>' + pill(b.status) + '</div>';
+          return '<div class="row-item" data-open="' + b.id + '" style="cursor:pointer"><div class="grow"><div class="t"><span class="req-code">' + esc(b.request_code) + '</span> ' + esc(b.full_name) + '</div><div class="s">' + esc(fmtShort(b.check_in)) + ' → ' + esc(fmtShort(b.check_out)) + ' · ' + b.guests + ' huésp.</div></div>' + pill(b.status) + '</div>';
         }).join('') +
         bl.map(function (k) {
           return '<div class="row-item"><div class="grow"><div class="t">⛔ Bloqueado</div><div class="s">' + esc(k.reason || 'Sin motivo') + '</div></div></div>';
@@ -1178,7 +1181,7 @@
   }
 
   function exportCsv() {
-    var cols = [['Código', 'confirmation_code'], ['Estado', function (b) { return (STATUS[b.status] || {}).label; }], ['Nombre', 'full_name'], ['Teléfono', 'phone'], ['Correo', 'email'],
+    var cols = [['N.º solicitud', 'request_code'], ['Código de reserva', 'confirmation_code'], ['Estado', function (b) { return (STATUS[b.status] || {}).label; }], ['Nombre', 'full_name'], ['Teléfono', 'phone'], ['Correo', 'email'],
       ['Motivo', function (b) { return REASONS[b.visit_reason]; }], ['Llegada', 'check_in'], ['Salida', 'check_out'], ['Noches', nights], ['Huéspedes', 'guests'],
       ['Valor', 'quoted_price'], ['Moneda', 'price_currency'], ['Método de pago', function (b) { return PAYMENT_METHODS[b.payment_method] || ''; }], ['Comentarios', 'comments'], ['Notas internas', 'internal_notes'], ['Recibida', function (b) { return fmtTs(b.created_at); }],
       ['Decidida', function (b) { return b.reviewed_at ? fmtTs(b.reviewed_at) : ''; }], ['Decidida por', 'decided_by']];
