@@ -126,8 +126,14 @@
   .daygrid { margin-bottom: 10px; }
   .daygrid button { width: 100%; aspect-ratio: 1; border-radius: 10px; font-size: 13px; background: var(--card); color: var(--ink); border: 1px solid var(--line); }
   .daygrid button.blank { visibility: hidden; pointer-events: none; border: none; background: transparent; }
-  .daygrid button.past { background: transparent; color: var(--faint); border-color: transparent; text-decoration: line-through; cursor: default; }
-  .daygrid button.booked { background: var(--booked-bg); color: var(--booked-fg); border-color: var(--booked-bg); text-decoration: line-through; cursor: not-allowed; }
+  .daygrid button.past {
+    background: repeating-linear-gradient(45deg, var(--line), var(--line) 4px, var(--cream) 4px, var(--cream) 8px);
+    color: var(--faint); border-color: var(--line); cursor: default; opacity: 0.7;
+  }
+  .daygrid button.booked {
+    background: repeating-linear-gradient(45deg, var(--booked-bg), var(--booked-bg) 4px, var(--card) 4px, var(--card) 8px);
+    color: var(--booked-fg); border-color: var(--booked-fg); font-weight: 600; cursor: not-allowed;
+  }
   .daygrid button.today { background: var(--card); color: var(--heading); border: 2px solid var(--teal); font-weight: 600; }
   .daygrid button.mid { background: color-mix(in srgb, var(--coral) 18%, transparent); color: var(--navy); border-color: transparent; }
   :root[data-theme="dark"] .daygrid button.mid { color: var(--ink); }
