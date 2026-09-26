@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { renderBookingEmail } from "./email-template.ts";
+import { renderBookingEmail, renderApplicantEmail } from "./email-template.ts";
 
 // Auto-provided by Supabase for every Edge Function — no manual secret needed.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -189,43 +189,48 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "insert_failed" }, 500, headers);
   }
 
-  try {
-    const html = renderBookingEmail({
-      fullName,
-      phone,
-      email,
-      reasonLabel: REASON_LABELS[visitReason],
-      checkInLabel: formatDateEs(checkIn),
-      checkOutLabel: formatDateEs(checkOut),
-      guests,
-      comments,
-      createdAtLabel: new Date(inserted.created_at).toLocaleString("es-CO", {
-        timeZone: "America/Bogota",
-        dateStyle: "long",
-        timeStyle: "short",
-      }),
-    });
+  const emailData = {
+    fullName,
+    phone,
+    email,
+    reasonLabel: REASON_LABELS[visitReason],
+    checkInLabel: formatDateEs(checkIn),
+    checkOutLabel: formatDateEs(checkOut),
+    guests,
+    comments,
+    createdAtLabel: new Date(inserted.created_at).toLocaleString("es-CO", {
+      timeZone: "America/Bogota",
+      dateStyle: "long",
+      timeStyle: "short",
+    }),
+  };
 
-    const emailRes = await fetch("https://api.resend.com/emails", {
+  // A notification failure shouldn't fail the request — the booking is
+  // already saved. Send both emails independently so one failing (e.g. the
+  // applicant's address isn't allowed yet under Resend's sandbox mode)
+  // doesn't stop the other from going out.
+  await Promise.all([
+    sendEmail(NOTIFY_EMAILS, `Nueva solicitud de reserva — ${fullName}`, renderBookingEmail(emailData)),
+    sendEmail([email], "Recibimos tu solicitud de reserva — Sierra Tayrona Wind", renderApplicantEmail(emailData)),
+  ]);
+
+  return json({ ok: true, id: inserted.id }, 200, headers);
+});
+
+async function sendEmail(to: string[], subject: string, html: string): Promise<void> {
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: RESEND_FROM_EMAIL,
-        to: NOTIFY_EMAILS,
-        subject: `Nueva solicitud de reserva — ${fullName}`,
-        html,
-      }),
+      body: JSON.stringify({ from: RESEND_FROM_EMAIL, to, subject, html }),
     });
-    if (!emailRes.ok) {
-      console.error("resend_failed", await emailRes.text());
+    if (!res.ok) {
+      console.error("resend_failed", to.join(","), await res.text());
     }
   } catch (err) {
-    // The booking is already saved; a notification failure shouldn't fail the request.
-    console.error("resend_error", err);
+    console.error("resend_error", to.join(","), err);
   }
-
-  return json({ ok: true, id: inserted.id }, 200, headers);
-});
+}
