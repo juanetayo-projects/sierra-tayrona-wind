@@ -21,6 +21,7 @@
     --teal: #2F6690;
     --booked-bg: #F3E4E0;
     --booked-fg: #B24C3E;
+    --heading: var(--navy);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -32,6 +33,7 @@
       --line: #333F4C;
       --booked-bg: #3a2622;
       --booked-fg: #E08A78;
+      --heading: var(--gold);
     }
   }
   :root[data-theme="dark"] {
@@ -43,6 +45,7 @@
     --line: #333F4C;
     --booked-bg: #3a2622;
     --booked-fg: #E08A78;
+    --heading: var(--gold);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -58,15 +61,14 @@
   .wrap { width: 100%; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; }
   .serif { font-family: 'Fraunces', serif; }
   .brandbar { padding: 22px 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
-  .brandmark { width: 44px; height: 44px; border-radius: 50%; background: var(--navy); display: flex; align-items: center; justify-content: center; }
-  .brandname { font-size: 22px; font-weight: 600; color: var(--navy); }
-  :root[data-theme="dark"] .brandname, @media (prefers-color-scheme: dark) { }
+  .brandmark { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; box-shadow: 0 2px 8px rgba(14,42,74,0.18); }
+  .brandmark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .brandname { font-size: 22px; font-weight: 600; color: var(--heading); }
   .brandsub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); font-weight: 600; }
 
   .hero { position: relative; margin: 0 20px; border-radius: 18px; overflow: hidden; height: 300px; background: linear-gradient(160deg, var(--navy-2) 0%, var(--navy) 55%, var(--navy-3) 100%); }
-  .hero-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .hero-ph-inner { border: 1px dashed rgba(255,255,255,0.35); border-radius: 12px; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
-  .hero-ph-inner span { color: rgba(255,255,255,0.55); font-size: 12px; text-align: center; font-style: italic; line-height: 1.5; }
+  .hero-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hero-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,30,56,0.15) 0%, rgba(10,30,56,0.35) 45%, rgba(10,30,56,0.88) 100%); }
   .hero-copy { position: absolute; left: 20px; right: 20px; bottom: 20px; }
   .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(14,42,74,0.55); border: 1px solid var(--gold); border-radius: 999px; padding: 6px 12px; margin-bottom: 12px; }
   .badge span { color: #F3E9C9; font-size: 11px; font-weight: 600; }
@@ -78,25 +80,23 @@
   .trust-item svg { color: var(--teal); flex-shrink: 0; }
 
   .gallery { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; padding: 18px 24px; }
-  .gallery > div { aspect-ratio: 1; border-radius: 14px; display: flex; align-items: center; justify-content: center; padding: 10px; }
-  .gallery > div span { color: rgba(255,255,255,0.75); font-size: 11px; text-align: center; font-style: italic; }
+  .gallery img { aspect-ratio: 1; width: 100%; border-radius: 14px; object-fit: cover; display: block; }
 
   .about { padding: 10px 24px 6px; }
-  .about h2 { font-size: 20px; font-weight: 600; color: var(--navy); margin: 0 0 8px; }
-  :root[data-theme="dark"] .about h2 { color: var(--gold); }
+  .about h2 { font-size: 20px; font-weight: 600; color: var(--heading); margin: 0 0 8px; }
   .about p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin: 0; }
 
   .amenities { padding: 18px 24px 6px; }
-  .amenities h2 { font-size: 18px; font-weight: 600; color: var(--navy); margin: 0 0 12px; }
+  .amenities h2 { font-size: 18px; font-weight: 600; color: var(--heading); margin: 0 0 12px; }
   .amenity-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
   .amenity-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .amenity-icon { width: 30px; height: 30px; border-radius: 8px; background: rgba(47,102,144,0.12); display: flex; align-items: center; justify-content: center; color: var(--navy); }
+  .amenity-icon { width: 30px; height: 30px; border-radius: 8px; background: rgba(47,102,144,0.12); display: flex; align-items: center; justify-content: center; color: var(--heading); }
   .amenity-card span { font-size: 12.5px; font-weight: 500; }
 
   .formcard { margin: 22px 20px; background: var(--card); border-radius: 20px; box-shadow: 0 12px 28px rgba(14,42,74,0.12); padding: 24px; }
-  .formcard h2 { font-size: 21px; font-weight: 600; color: var(--navy); margin: 0; }
+  .formcard h2 { font-size: 21px; font-weight: 600; color: var(--heading); margin: 0; }
   .formcard > p.lede { font-size: 12.5px; color: var(--muted); margin: 6px 0 20px; line-height: 1.5; }
-  label.field-label { display: block; font-size: 12px; font-weight: 600; color: var(--navy); margin-bottom: 6px; }
+  label.field-label { display: block; font-size: 12px; font-weight: 600; color: var(--heading); margin-bottom: 6px; }
   select, input[type=text], input[type=tel], input[type=email], textarea {
     width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px; background: var(--cream); color: var(--ink); margin-bottom: 16px;
   }
@@ -109,11 +109,10 @@
   .dates-row { display: flex; gap: 10px; margin-bottom: 14px; }
   .date-box { flex: 1; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--cream); }
   .date-box .lbl { font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.5px; }
-  .date-box .val { font-size: 14px; font-weight: 600; color: var(--navy); }
-  :root[data-theme="dark"] .date-box .val { color: var(--gold); }
+  .date-box .val { font-size: 14px; font-weight: 600; color: var(--heading); }
 
   .month-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .month-row .name { font-size: 13px; font-weight: 600; color: var(--navy); }
+  .month-row .name { font-size: 13px; font-weight: 600; color: var(--heading); }
   .month-row .tz { font-size: 10.5px; color: var(--faint); }
   .weekdays, .daygrid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; }
   .weekdays { margin-bottom: 8px; }
@@ -123,7 +122,7 @@
   .daygrid button.blank { visibility: hidden; pointer-events: none; border: none; background: transparent; }
   .daygrid button.past { background: transparent; color: var(--faint); border-color: transparent; text-decoration: line-through; cursor: default; }
   .daygrid button.booked { background: var(--booked-bg); color: var(--booked-fg); border-color: var(--booked-bg); text-decoration: line-through; cursor: not-allowed; }
-  .daygrid button.today { background: var(--card); color: var(--navy); border: 2px solid var(--teal); font-weight: 600; }
+  .daygrid button.today { background: var(--card); color: var(--heading); border: 2px solid var(--teal); font-weight: 600; }
   .daygrid button.mid { background: color-mix(in srgb, var(--coral) 18%, transparent); color: var(--navy); border-color: transparent; }
   :root[data-theme="dark"] .daygrid button.mid { color: var(--ink); }
   .daygrid button.selected { background: var(--coral); color: #ffffff; border-color: var(--coral); font-weight: 600; }
@@ -135,7 +134,7 @@
   .tz-note { font-size: 11px; color: var(--faint); margin: -10px 0 20px; line-height: 1.5; }
 
   .stepper { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
-  .stepper button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--cream); font-size: 18px; color: var(--navy); line-height: 1; }
+  .stepper button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--cream); font-size: 18px; color: var(--heading); line-height: 1; }
   .stepper .count { font-size: 16px; font-weight: 600; min-width: 20px; text-align: center; }
 
   .consent { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px; cursor: pointer; }
@@ -152,12 +151,13 @@
   .whatsapp-card { margin: 0 20px 24px; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; background: var(--card); text-decoration: none; }
   .whatsapp-card .ic { width: 36px; height: 36px; border-radius: 50%; background: rgba(47,102,144,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--teal); }
   .whatsapp-card .txt { flex: 1; }
-  .whatsapp-card .t1 { font-size: 13px; font-weight: 600; color: var(--navy); }
-  :root[data-theme="dark"] .whatsapp-card .t1 { color: var(--gold); }
+  .whatsapp-card .t1 { font-size: 13px; font-weight: 600; color: var(--heading); }
   .whatsapp-card .t2 { font-size: 11.5px; color: var(--muted); }
   .whatsapp-card svg.chev { color: var(--faint); }
 
   footer { margin-top: auto; background: var(--navy); padding: 26px 24px; text-align: center; }
+  footer .mark { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; margin: 0 auto 10px; }
+  footer .mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
   footer .b { font-size: 15px; color: #ffffff; font-weight: 600; margin-bottom: 4px; }
   footer .a { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 14px; }
   footer .c { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.6; }
@@ -172,14 +172,15 @@
 
   <div class="brandbar">
     <div class="brandmark">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l5-9 4 6 3-4 6 7"/><circle cx="12" cy="6" r="2.2"/></svg>
+      <img src="assets/logo/logo-light.jpg" alt="Sierra Tayrona Wind — Playa Salguero, Beach Apartments">
     </div>
     <div class="brandname serif">Sierra Tayrona Wind</div>
     <div class="brandsub">Playa Salguero · Santa Marta</div>
   </div>
 
   <div class="hero">
-    <div class="hero-ph"><div class="hero-ph-inner"><span>[FOTO: balcón con hamacas<br>y vista al mar — reemplazar<br>con fotografía real]</span></div></div>
+    <img class="hero-photo" src="assets/photos/hero.jpg" alt="Sala del apartamento Sierra Tayrona Wind con decoración marinera y vista al mar">
+    <div class="hero-scrim"></div>
     <div class="hero-copy">
       <div class="badge">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -198,8 +199,8 @@
   </div>
 
   <div class="gallery">
-    <div style="background: linear-gradient(160deg,#2F6690,#0E2A4A);"><span>[FOTO: sala con vista panorámica]</span></div>
-    <div style="background: linear-gradient(160deg,#C9A227,#8a6d17);"><span>[FOTO: hamacas al atardecer]</span></div>
+    <img src="assets/photos/gallery-1.jpg" alt="Cocina y comedor del apartamento con estilo costero">
+    <img src="assets/photos/gallery-2.jpg" alt="Sala con vista al mar y decoración marinera">
   </div>
 
   <div class="about">
@@ -316,6 +317,7 @@
   </a>
 
   <footer>
+    <div class="mark"><img src="assets/logo/logo-navy.jpg" alt=""></div>
     <div class="b serif">Sierra Tayrona Wind</div>
     <div class="a">Playa Salguero, Santa Marta, Colombia</div>
     <div class="c">© 2026 Sierra Tayrona Wind. Todos los derechos reservados.<br>Tus datos se almacenan de forma segura y solo se usan para gestionar tu reserva.</div>
