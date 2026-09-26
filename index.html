@@ -112,9 +112,11 @@
   .date-box .lbl { font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.5px; }
   .date-box .val { font-size: 14px; font-weight: 600; color: var(--heading); }
 
-  .month-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .month-row .name { font-size: 13px; font-weight: 600; color: var(--heading); }
-  .month-row .tz { font-size: 10.5px; color: var(--faint); }
+  .month-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 4px; }
+  .month-row .name { font-size: 13px; font-weight: 600; color: var(--heading); min-width: 140px; text-align: center; }
+  .month-nav { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--cream); color: var(--heading); display: flex; align-items: center; justify-content: center; }
+  .month-nav[disabled] { opacity: 0.35; cursor: not-allowed; }
+  .tz { font-size: 10.5px; color: var(--faint); }
   .weekdays, .daygrid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; }
   .weekdays { margin-bottom: 8px; }
   .weekdays span { text-align: center; font-size: 10.5px; color: var(--faint); font-weight: 600; }
@@ -166,6 +168,9 @@
   .confirm-banner { display: none; margin: 0 20px 16px; background: rgba(47,102,144,0.12); border: 1px solid var(--teal); border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: var(--navy); }
   :root[data-theme="dark"] .confirm-banner { color: var(--ink); }
   .confirm-banner.show { display: block; }
+  .error-banner { display: none; margin: 0 20px 16px; background: rgba(178,76,62,0.1); border: 1px solid var(--booked-fg); border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: var(--booked-fg); }
+  .error-banner.show { display: block; }
+  .submit-btn[aria-busy="true"] { opacity: 0.7; cursor: wait; }
 </style>
 </head>
 <body>
@@ -225,18 +230,19 @@
     <h2 class="serif">Solicita tu reserva</h2>
     <p class="lede">Cuéntanos cuándo quieres venir y te confirmaremos disponibilidad por WhatsApp o correo.</p>
 
-    <div class="confirm-banner" id="confirmBanner">✓ Solicitud lista para enviar (demo visual — sin conexión a base de datos todavía).</div>
+    <div class="confirm-banner" id="confirmBanner">✓ ¡Solicitud enviada! Te confirmaremos la disponibilidad por WhatsApp o correo.</div>
+    <div class="error-banner" id="errorBanner"></div>
 
     <form id="bookingForm" novalidate>
       <label class="field-label" for="motivo">Motivo de la visita</label>
       <select id="motivo" required>
         <option value="">Selecciona una opción…</option>
-        <option>Vacaciones familiares</option>
-        <option>Fin de semana</option>
-        <option>Pasadía</option>
-        <option>Evento</option>
-        <option>Reunión empresarial</option>
-        <option>Otro</option>
+        <option value="vacaciones">Vacaciones familiares</option>
+        <option value="fin_de_semana">Fin de semana</option>
+        <option value="pasadia">Pasadía</option>
+        <option value="evento">Evento</option>
+        <option value="reunion">Reunión empresarial</option>
+        <option value="otro">Otro</option>
       </select>
 
       <div class="field-label">Fechas deseadas</div>
@@ -246,9 +252,11 @@
       </div>
 
       <div class="month-row">
-        <span class="name" id="monthLabel">Noviembre 2026</span>
-        <span class="tz">Zona horaria: Bogotá</span>
+        <button type="button" class="month-nav" id="prevMonth" aria-label="Mes anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <span class="name" id="monthLabel">—</span>
+        <button type="button" class="month-nav" id="nextMonth" aria-label="Mes siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
       </div>
+      <div class="tz" style="text-align:right;margin-bottom:8px;">Zona horaria: Bogotá</div>
       <div class="weekdays">
         <span>D</span><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span>
       </div>
@@ -330,39 +338,85 @@
 
 <script>
 (function () {
-  var TODAY = 5, LEADING = 3, MONTH_DAYS = 30, BOOKED = [22, 23];
-  var state = { checkIn: 12, checkOut: 16, guests: 4 };
+  var SUPABASE_URL = 'https://dwyyhrntkcqnowsyimjz.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_B6yeo_9GwZDbQEmh9agyMA_FRX2amNB';
+  var FUNCTIONS_URL = SUPABASE_URL + '/functions/v1/submit-booking';
+  var FORM_LOADED_AT = Date.now();
+
+  var MONTH_NAMES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  function todayISOInBogota() {
+    // en-CA formats as YYYY-MM-DD, already resolved to the given timezone.
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function toISO(y, m, d) { return y + '-' + pad2(m + 1) + '-' + pad2(d); }
+  function fmtLabel(iso) {
+    if (!iso) return '—';
+    var parts = iso.split('-');
+    return parseInt(parts[2], 10) + ' ' + MONTH_NAMES[parseInt(parts[1], 10) - 1].slice(0, 3);
+  }
+
+  var TODAY_ISO = todayISOInBogota();
+  var todayParts = TODAY_ISO.split('-').map(function (v) { return parseInt(v, 10); });
+
+  var state = {
+    viewYear: todayParts[0],
+    viewMonth: todayParts[1] - 1,
+    checkIn: null,
+    checkOut: null,
+    guests: 4,
+    bookedRanges: [],
+  };
+
   var grid = document.getElementById('dayGrid');
   var checkInLabel = document.getElementById('checkInLabel');
   var checkOutLabel = document.getElementById('checkOutLabel');
   var guestCount = document.getElementById('guestCount');
+  var monthLabel = document.getElementById('monthLabel');
+  var prevMonthBtn = document.getElementById('prevMonth');
+  var nextMonthBtn = document.getElementById('nextMonth');
 
-  function fmt(d) { return d ? d + ' nov' : '—'; }
+  function isBooked(iso) {
+    for (var i = 0; i < state.bookedRanges.length; i++) {
+      var r = state.bookedRanges[i];
+      if (iso >= r.check_in && iso < r.check_out) return true;
+    }
+    return false;
+  }
 
-  function statusFor(d) {
-    if (d < TODAY) return 'past';
-    if (BOOKED.indexOf(d) !== -1) return 'booked';
-    if (state.checkIn && d === state.checkIn) return 'selected';
-    if (state.checkOut && d === state.checkOut) return 'selected';
-    if (state.checkIn && state.checkOut && d > state.checkIn && d < state.checkOut) return 'mid';
-    if (d === TODAY) return 'today';
+  function statusFor(iso) {
+    if (iso < TODAY_ISO) return 'past';
+    if (isBooked(iso)) return 'booked';
+    if (state.checkIn && iso === state.checkIn) return 'selected';
+    if (state.checkOut && iso === state.checkOut) return 'selected';
+    if (state.checkIn && state.checkOut && iso > state.checkIn && iso < state.checkOut) return 'mid';
+    if (iso === TODAY_ISO) return 'today';
     return 'available';
   }
 
-  function pick(d) {
+  function pick(iso) {
     if (!state.checkIn || (state.checkIn && state.checkOut)) {
-      state.checkIn = d; state.checkOut = null;
-    } else if (d <= state.checkIn) {
-      state.checkIn = d; state.checkOut = null;
+      state.checkIn = iso; state.checkOut = null;
+    } else if (iso <= state.checkIn) {
+      state.checkIn = iso; state.checkOut = null;
     } else {
-      state.checkOut = d;
+      state.checkOut = iso;
     }
     render();
   }
 
   function render() {
+    var y = state.viewYear, m = state.viewMonth;
+    var monthName = MONTH_NAMES[m];
+    monthLabel.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1) + ' ' + y;
+    prevMonthBtn.disabled = (y < todayParts[0]) || (y === todayParts[0] && m <= todayParts[1] - 1);
+
+    var daysInMonth = new Date(y, m + 1, 0).getDate();
+    var leading = new Date(y, m, 1).getDay();
+
     grid.innerHTML = '';
-    for (var i = 0; i < LEADING; i++) {
+    for (var i = 0; i < leading; i++) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'blank';
@@ -370,8 +424,9 @@
       b.setAttribute('aria-hidden', 'true');
       grid.appendChild(b);
     }
-    for (var d = 1; d <= MONTH_DAYS; d++) {
-      var s = statusFor(d);
+    for (var d = 1; d <= daysInMonth; d++) {
+      var iso = toISO(y, m, d);
+      var s = statusFor(iso);
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = d;
@@ -379,14 +434,25 @@
       if (s === 'past' || s === 'booked') {
         btn.disabled = true;
       } else {
-        btn.addEventListener('click', (function (day) { return function () { pick(day); }; })(d));
+        btn.addEventListener('click', (function (dateIso) { return function () { pick(dateIso); }; })(iso));
       }
       grid.appendChild(btn);
     }
-    checkInLabel.textContent = fmt(state.checkIn);
-    checkOutLabel.textContent = fmt(state.checkOut);
+    checkInLabel.textContent = fmtLabel(state.checkIn);
+    checkOutLabel.textContent = fmtLabel(state.checkOut);
     guestCount.textContent = state.guests;
   }
+
+  prevMonthBtn.addEventListener('click', function () {
+    state.viewMonth -= 1;
+    if (state.viewMonth < 0) { state.viewMonth = 11; state.viewYear -= 1; }
+    render();
+  });
+  nextMonthBtn.addEventListener('click', function () {
+    state.viewMonth += 1;
+    if (state.viewMonth > 11) { state.viewMonth = 0; state.viewYear += 1; }
+    render();
+  });
 
   document.getElementById('decGuests').addEventListener('click', function () {
     state.guests = Math.max(1, state.guests - 1);
@@ -397,24 +463,94 @@
     render();
   });
 
+  // Load which dates are already confirmed so the calendar reflects real
+  // availability. The view only exposes check_in/check_out, no guest data.
+  fetch(SUPABASE_URL + '/rest/v1/public_availability?select=check_in,check_out', {
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
+  })
+    .then(function (res) { return res.ok ? res.json() : []; })
+    .then(function (rows) { state.bookedRanges = rows || []; render(); })
+    .catch(function () { /* keep the calendar usable even if this fails */ });
+
+  render();
+
+  var ERROR_MESSAGES = {
+    too_fast: 'El formulario se envió demasiado rápido. Espera unos segundos e inténtalo de nuevo.',
+    rate_limited: 'Se alcanzó el límite de solicitudes desde tu conexión. Intenta de nuevo en un rato, o escríbenos por WhatsApp.',
+    missing_turnstile_token: 'La verificación de seguridad aún está cargando. Espera un momento e intenta de nuevo.',
+    turnstile_failed: 'No se pudo verificar que eres una persona. Recarga la página e intenta de nuevo.',
+    validation_failed: 'Revisa los datos del formulario, algún campo no es válido.',
+    insert_failed: 'No pudimos guardar tu solicitud. Intenta de nuevo en unos minutos.',
+    network: 'No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.',
+  };
+
   var form = document.getElementById('bookingForm');
   var banner = document.getElementById('confirmBanner');
+  var errorBanner = document.getElementById('errorBanner');
+  var submitBtn = document.getElementById('submitBtn');
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    if (document.getElementById('website').value) return; // honeypot tripped
+    errorBanner.classList.remove('show');
+
+    if (document.getElementById('website').value) return; // honeypot tripped, fail silently
+
     if (!form.checkValidity() || !state.checkIn || !state.checkOut) {
       form.reportValidity();
       return;
     }
-    // TODO: once the Edge Function exists, read the Turnstile token from
-    // form.querySelector('[name="cf-turnstile-response"]').value and POST
-    // it plus the form fields to the Edge Function instead of just
-    // showing this local confirmation banner.
-    banner.classList.add('show');
-    banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
 
-  render();
+    var turnstileInput = form.querySelector('[name="cf-turnstile-response"]');
+    var payload = {
+      fullName: document.getElementById('nombre').value.trim(),
+      phone: document.getElementById('telefono').value.trim(),
+      email: document.getElementById('correo').value.trim(),
+      visitReason: document.getElementById('motivo').value,
+      checkIn: state.checkIn,
+      checkOut: state.checkOut,
+      guests: state.guests,
+      comments: document.getElementById('comentarios').value.trim() || null,
+      consent: document.getElementById('consent').checked,
+      website: document.getElementById('website').value,
+      formLoadedAt: FORM_LOADED_AT,
+      turnstileToken: turnstileInput ? turnstileInput.value : '',
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.setAttribute('aria-busy', 'true');
+
+    fetch(FUNCTIONS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
+      body: JSON.stringify(payload),
+    })
+      .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+      .then(function (result) {
+        if (result.data && result.data.ok) {
+          banner.classList.add('show');
+          banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          form.reset();
+          state.checkIn = null;
+          state.checkOut = null;
+          state.guests = 4;
+          render();
+        } else {
+          var code = (result.data && result.data.error) || 'network';
+          errorBanner.textContent = ERROR_MESSAGES[code] || ERROR_MESSAGES.network;
+          errorBanner.classList.add('show');
+          errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      })
+      .catch(function () {
+        errorBanner.textContent = ERROR_MESSAGES.network;
+        errorBanner.classList.add('show');
+        errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      })
+      .finally(function () {
+        submitBtn.disabled = false;
+        submitBtn.removeAttribute('aria-busy');
+      });
+  });
 })();
 </script>
 </body>
