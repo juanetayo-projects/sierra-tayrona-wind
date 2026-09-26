@@ -6,14 +6,17 @@ import { renderBookingEmail } from "./email-template.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Manually set in Supabase Vault (Project Settings -> Vault).
+// Manually set under Edge Functions -> Secrets in the Supabase dashboard.
 const TURNSTILE_SECRET_KEY = Deno.env.get("TURNSTILE_SECRET_KEY")!;
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 
-// Not secret — safe to default in code. Override via Vault once a verified
-// sending domain exists in Resend (RESEND_FROM_EMAIL).
+// Not secret — safe to default in code. Override via an Edge Function secret
+// once a verified sending domain exists in Resend (RESEND_FROM_EMAIL).
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") ?? "Sierra Tayrona Wind <onboarding@resend.dev>";
-const NOTIFY_EMAILS = ["edwin.etayo@gmail.com", "etayojuanc@gmail.com"];
+// TEMPORARY: Resend's sandbox mode (no verified domain yet) only allows
+// sending to the account owner's own address. Restore both real recipients
+// once notificaciones.cacsantabarbara.co is verified in Resend.
+const NOTIFY_EMAILS = ["juan.etayo@cacsantabarbara.co"];
 
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
@@ -137,6 +140,7 @@ Deno.serve(async (req: Request) => {
   });
   const verifyData = await verifyRes.json();
   if (!verifyData.success) {
+    console.error("turnstile_failed", JSON.stringify(verifyData));
     return json({ ok: false, error: "turnstile_failed" }, 400, headers);
   }
 
