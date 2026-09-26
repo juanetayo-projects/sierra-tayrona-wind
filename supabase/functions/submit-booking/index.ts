@@ -168,6 +168,17 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: "validation_failed", fields: fieldErrors }, 400, headers);
   }
 
+  // Contactos bloqueados desde la consola: se responde "ok" sin guardar ni
+  // notificar, para no revelar el bloqueo.
+  const phoneDigits = phone.replace(/\D/g, "");
+  const [{ count: blockedByEmail }, { count: blockedByPhone }] = await Promise.all([
+    supabase.from("blocked_contacts").select("id", { count: "exact", head: true }).eq("email", email.toLowerCase()),
+    supabase.from("blocked_contacts").select("id", { count: "exact", head: true }).eq("phone_digits", phoneDigits),
+  ]);
+  if ((blockedByEmail ?? 0) + (blockedByPhone ?? 0) > 0) {
+    return json({ ok: true }, 200, headers);
+  }
+
   const { data: inserted, error: insertError } = await supabase
     .from("booking_requests")
     .insert({

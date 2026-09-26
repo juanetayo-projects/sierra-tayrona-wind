@@ -70,6 +70,11 @@ export function renderBookingEmail(b: BookingEmailData): string {
             </td>
           </tr>
           <tr>
+            <td style="padding:0 28px 28px;text-align:center;">
+              <a href="https://juanetayo-projects.github.io/sierra-tayrona-wind/admin/" style="display:inline-block;background:#0E2A4A;color:#ffffff;text-decoration:none;font:600 14px/1 -apple-system,Segoe UI,Arial,sans-serif;padding:14px 22px;border-radius:10px;">Gestionar en la consola</a>
+            </td>
+          </tr>
+          <tr>
             <td style="background:#0E2A4A;padding:18px 28px;text-align:center;">
               <div style="font:400 11px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:rgba(255,255,255,0.55);">
                 Sierra Tayrona Wind · Playa Salguero, Santa Marta, Colombia

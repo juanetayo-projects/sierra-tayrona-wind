@@ -33,3 +33,19 @@ Fotos reales del apartamento y logo oficial (`assets/photos/`, `assets/logo/`) y
 - Flujo de aprobación: solicitud → revisión manual del propietario por WhatsApp/correo (sin aprobación automática por ahora).
 - Anti-spam: honeypot + Cloudflare Turnstile + Edge Function (capa completa, no solo honeypot).
 - Notificaciones: correo electrónico con plantilla HTML elegante a `edwin.etayo@gmail.com` y `etayojuanc@gmail.com` (no WhatsApp).
+
+## Fase 3 — Consola de gestión de reservas (`/admin/`)
+
+URL: https://juanetayo-projects.github.io/sierra-tayrona-wind/admin/ — separada del formulario público (no hay enlaces entre ambos y tiene `noindex`). Instalable en el teléfono como app (PWA).
+
+- **Login** con el logo de marca. Acepta usuario (`adminwind` → `adminwind@sierratayronawind.app`) o correo. Solo entran las cuentas registradas en `public.admin_users`.
+- **Panel de control** (modelo PMS: Airbnb Insights / Booking Extranet / Cloudbeds): llegadas, salidas y hospedados de hoy; solicitudes, aprobadas, rechazadas, conversión, ocupación a 30 días, tiempo de respuesta, anticipación, estancia promedio, ingresos y ADR; tendencia semanal/mensual, mapa de calor día × hora de las solicitudes, meses y días de llegada más pedidos, calendario de demanda a 6 meses, embudo de estados, motivos, tamaño de grupo y anticipación.
+- **Solicitudes**: filtros por estado, búsqueda, alertas de cruce de fechas y detalle con contacto directo (WhatsApp / llamada / correo), valor, notas internas y línea de tiempo de seguimiento.
+- **Ciclo de vida**: pendiente → pre-reserva → aprobada → hospedado → finalizada; salidas: rechazada, cancelada, no se presentó; reabrir; bloquear solicitante; reenviar notificación.
+- **Notificaciones**: al aprobar, rechazar, cancelar o pre-reservar se envía correo al huésped (Edge Function `admin-booking` + Resend) y se prepara el mensaje de WhatsApp con todos los datos (un toque desde el teléfono vía `wa.me`).
+- **Calendario**: ocupación, solicitudes en revisión y bloqueos de fechas (los bloqueos también se reflejan en el formulario público).
+- **Ajustes**: solicitantes bloqueados, tema claro/oscuro, exportar CSV, cambiar contraseña.
+
+Esquema: [`supabase/migrations/20260926120000_admin_console.sql`](supabase/migrations/20260926120000_admin_console.sql).
+
+Secretos opcionales de la Edge Function `admin-booking`: `RESEND_FROM_EMAIL` (remitente con dominio verificado), `RESEND_REPLY_TO` (buzón que recibe respuestas de huéspedes), `OWNER_WHATSAPP` (número del propietario para el botón de WhatsApp en los correos).
