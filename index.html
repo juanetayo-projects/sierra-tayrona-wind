@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sierra Tayrona Wind</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
   :root {
     --navy: #0E2A4A;
@@ -299,6 +300,8 @@
         <span>Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012 (Habeas Data) para gestionar esta solicitud de reserva.</span>
       </label>
 
+      <div class="cf-turnstile" data-sitekey="0x4AAAAAAFEeEWtBOsv-bgDl" data-theme="auto" style="margin-bottom: 16px;"></div>
+
       <button type="submit" class="submit-btn" id="submitBtn">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         Enviar solicitud de reserva
@@ -403,6 +406,10 @@
       form.reportValidity();
       return;
     }
+    // TODO: once the Edge Function exists, read the Turnstile token from
+    // form.querySelector('[name="cf-turnstile-response"]').value and POST
+    // it plus the form fields to the Edge Function instead of just
+    // showing this local confirmation banner.
     banner.classList.add('show');
     banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
